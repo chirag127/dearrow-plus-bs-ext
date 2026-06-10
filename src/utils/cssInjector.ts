@@ -102,7 +102,7 @@ function buildHideThumbnailCss(): string {
                 additionalItem = " *:not(.ytThumbnailViewModelBlurredImage)";
             }
 
-            result.push(`${start} ${thumbnailType}${additionalItem} img:not(.cb-visible, ytd-moving-thumbnail-renderer img, .cbCustomThumbnailCanvas, .yt-spec-avatar-shape__image, .cbShowOriginalImage)`);
+            result.push(`${start} ${thumbnailType}${additionalItem} img:not(.cb-visible, ytd-moving-thumbnail-renderer img, .cbCustomThumbnailCanvas, .yt-spec-avatar-shape__image, .cbShowOriginalImage, [src*="/images/"])`);
         }
     }
 
