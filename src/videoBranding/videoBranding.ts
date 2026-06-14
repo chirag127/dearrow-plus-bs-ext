@@ -597,7 +597,8 @@ export async function shouldShowCasualOnVideoWithOriginalTitleElement(videoID: V
 
     const currentPageTitle = originalTitleElement.textContent;
     const casualInfo = (await getVideoCasualInfo(videoID, brandingLocation))
-        .filter((v) => !v.title || v.title.toLowerCase() === currentPageTitle?.toLowerCase().trim());
+        // Exception for Tom Scott changing title
+        .filter((v) => !v.title || v.title.toLowerCase() === currentPageTitle?.toLowerCase().trim() || videoID === "BxV14h0kFs0");
 
     for (const category of casualInfo) {
         const configAmount = Config.config!.casualModeSettings[category.id];
