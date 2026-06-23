@@ -124,6 +124,7 @@ interface SBConfig {
     ignoreAbThumbnails: boolean;
     ignoreTranslatedTitles: boolean;
     hideDetailsWhileFetching: boolean;
+    showOriginalAlongsideTitle: boolean; // oriz-fork
     firstThumbnailSubmitted: boolean;
     b: boolean;
     licenseKey: string | null;
@@ -234,6 +235,7 @@ const syncDefaults = {
     ignoreAbThumbnails: true,
     ignoreTranslatedTitles: false,
     hideDetailsWhileFetching: true,
+    showOriginalAlongsideTitle: true, // oriz-fork: default ON
     firstThumbnailSubmitted: false,
     b: false,
     licenseKey: null,

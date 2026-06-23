@@ -95,8 +95,12 @@ export async function replaceTitle(element: HTMLElement, videoID: VideoID, showC
             if (onMobile()) {
                 hideOriginalTitle(element, brandingLocation);
             }
-            
-            setCustomTitle(formattedTitle, element, brandingLocation);
+
+            // oriz-fork: optionally append original YouTube title in parentheses
+            const displayTitle = Config.config!.showOriginalAlongsideTitle && originalTitle
+                ? `${formattedTitle} (original: ${originalTitle})`
+                : formattedTitle;
+            setCustomTitle(displayTitle, element, brandingLocation);
             countTitleReplacement(videoID);
         } else {
             // innerText is blank when visibility hidden
