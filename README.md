@@ -19,6 +19,14 @@ DeArrow is a browser extension for crowdsourcing better titles and thumbnails on
 
 The goal of DeArrow is to make titles accurate and reduce sensationalism.
 
+## Local patches & upstream sync
+
+Features in this fork beyond upstream `ajayyy/DeArrow`:
+
+- **Dual-title display + preference badge** — see [ajayyy/DeArrow#496](https://github.com/ajayyy/DeArrow/issues/496) (filed by us, awaiting upstream response).
+
+When upstream merges a patched feature, we drop the local patch on the next sync.
+
 Titles can be any arbitrary text. Thumbnails are screenshots from specific timestamps in the video. These are user submitted and voted on.
 
 By default, if there are no submissions, it will format the original title to the user-specified format, and set a screenshot from a random timestamp as the thumbnail. This can be configured in the options to disable formatting, or show the original thumbnail by default.

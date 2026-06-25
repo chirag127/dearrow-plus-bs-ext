@@ -1,6 +1,6 @@
 import { VideoID, getVideoID, isOnMobileYouTube } from "../../maze-utils/src/video";
 import Config, { TitleFormatting } from "../config/config";
-import { getVideoTitleIncludingUnsubmitted } from "../dataFetching";
+import { getVideoTitleIncludingUnsubmitted, submitVideoBranding } from "../dataFetching";
 import { logError } from "../utils/logger";
 import { MobileFix, addNodeToListenFor, getOrCreateTitleButtonContainer } from "../utils/titleBar";
 import { BrandingLocation, ShowCustomBrandingInfo, extractVideoIDFromElement, getActualShowCustomBranding, hasCustomTitle, setShowCustomBasedOnDefault, shouldShowCasual, showThreeShowOriginalStages, toggleShowCustom } from "../videoBranding/videoBranding";
@@ -13,6 +13,7 @@ import { isFirefoxOrSafari, waitFor } from "../../maze-utils/src";
 import { isSafari } from "../../maze-utils/src/config";
 import { notificationToTitle, titleToNotificationFormat } from "../videoBranding/notificationHandler";
 import { getAntiTranslatedTitle } from "./titleAntiTranslateData";
+import { decideOrizDualTitleRender } from "./orizDualTitle";
 
 enum WatchPageType {
     Video,
@@ -101,6 +102,8 @@ export async function replaceTitle(element: HTMLElement, videoID: VideoID, showC
                 ? `${formattedTitle} (original: ${originalTitle})`
                 : formattedTitle;
             setCustomTitle(displayTitle, element, brandingLocation);
+            // oriz-fork: render dual-title block + preference badge beneath the DeArrow title
+            renderOrizDualTitleBlock(element, brandingLocation, videoID, formattedTitle, originalTitle);
             countTitleReplacement(videoID);
         } else {
             // innerText is blank when visibility hidden
@@ -181,7 +184,11 @@ function hideOriginalTitle(element: HTMLElement, brandingLocation: BrandingLocat
 function showOriginalTitle(element: HTMLElement, brandingLocation: BrandingLocation) {
     const originalTitleElement = getOriginalTitleElement(element, brandingLocation);
     const titleElement = getOrCreateTitleElement(element, brandingLocation, originalTitleElement);
-    
+
+    // oriz-fork: showing pure original means no DeArrow swap is active — strip our block too.
+    const orizBlock = element.querySelector(":scope > .orizDualTitleBlock");
+    if (orizBlock) orizBlock.remove();
+
     titleElement.style.display = "none";
     if (originalTitleElement.classList.contains("ta-title-container")) {
         // Compatibility with Tube Archivist
@@ -845,5 +852,114 @@ function getOriginalTitleText(originalTitleElement: HTMLElement, brandingLocatio
         }
         default:
             return originalTitleElement?.textContent ?? "";
+    }
+}
+
+// oriz-fork: dual-title display + preference badge
+// Renders, beneath the DeArrow-replaced title, a small grey line containing the
+// original YouTube title. Optionally adds two thumbs-up badges that fire a vote
+// to DeArrow's existing submission endpoint (/api/branding) — same call the
+// extension uses for in-product title voting.
+// Decision gating lives in ./orizDualTitle for testability without a DOM.
+export function renderOrizDualTitleBlock(
+    element: HTMLElement,
+    brandingLocation: BrandingLocation,
+    videoID: VideoID,
+    dearrowTitle: string,
+    originalTitle: string
+): HTMLElement | null {
+    const showOriginal = Config.config?.showOriginalTitle ?? true;
+    const showBadge = Config.config?.showPreferenceBadge ?? true;
+
+    const decision = decideOrizDualTitleRender(dearrowTitle, originalTitle, showOriginal, showBadge);
+    if (!decision.render) {
+        removeOrizDualTitleBlock(element);
+        return null;
+    }
+
+    const titleElement = element.querySelector(".cbCustomTitle") as HTMLElement | null;
+    if (!titleElement?.parentElement) return null;
+
+    let block = element.querySelector(":scope > .orizDualTitleBlock") as HTMLElement | null;
+    if (!block) {
+        block = document.createElement("div");
+        block.className = "orizDualTitleBlock";
+        block.style.display = "block";
+        block.style.marginTop = "2px";
+        block.style.fontSize = "0.85em";
+        // Inherit grey from YouTube's secondary text token (degrades cleanly in dark + light mode).
+        block.style.color = "var(--yt-spec-text-secondary, #aaa)";
+        block.style.lineHeight = "1.2";
+        // Insert directly after the custom DeArrow title element.
+        titleElement.parentElement.insertBefore(block, titleElement.nextSibling);
+    }
+
+    block.replaceChildren();
+
+    if (showOriginal) {
+        const originalSpan = document.createElement("span");
+        originalSpan.className = "orizDualTitleOriginal";
+        originalSpan.style.display = "inline";
+        originalSpan.textContent = originalTitle;
+        block.appendChild(originalSpan);
+    }
+
+    if (showBadge) {
+        const badgeRow = document.createElement("span");
+        badgeRow.className = "orizPreferenceBadge";
+        badgeRow.style.display = "inline-flex";
+        badgeRow.style.marginLeft = "6px";
+        badgeRow.style.gap = "4px";
+
+        const makeButton = (label: string, preferOriginal: boolean) => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "orizPreferenceBadgeButton";
+            btn.dataset.preferOriginal = preferOriginal ? "1" : "0";
+            btn.textContent = label;
+            btn.style.cursor = "pointer";
+            btn.style.fontSize = "0.95em";
+            btn.style.padding = "0 4px";
+            btn.style.border = "1px solid var(--yt-spec-text-secondary, #aaa)";
+            btn.style.borderRadius = "3px";
+            btn.style.background = "transparent";
+            btn.style.color = "var(--yt-spec-text-secondary, #aaa)";
+            btn.addEventListener("click", (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                submitOrizPreferenceVote(videoID, preferOriginal ? originalTitle : dearrowTitle, preferOriginal, btn);
+            });
+            return btn;
+        };
+
+        badgeRow.appendChild(makeButton("DeArrow ✓", false));
+        badgeRow.appendChild(makeButton("Original ✓", true));
+        block.appendChild(badgeRow);
+    }
+
+    return block;
+}
+
+function removeOrizDualTitleBlock(element: HTMLElement) {
+    const existing = element.querySelector(":scope > .orizDualTitleBlock");
+    if (existing) existing.remove();
+}
+
+async function submitOrizPreferenceVote(videoID: VideoID, title: string, original: boolean, btn: HTMLButtonElement) {
+    btn.disabled = true;
+    const previousText = btn.textContent ?? "";
+    try {
+        const result = await submitVideoBranding(videoID, { title, original }, null, false, false);
+        if (result && result.ok) {
+            btn.textContent = `${previousText} ✓`;
+            btn.style.color = "var(--yt-spec-call-to-action, #3ea6ff)";
+        } else {
+            btn.textContent = `${previousText} !`;
+            btn.disabled = false;
+        }
+    } catch (e) {
+        logError(e);
+        btn.textContent = `${previousText} !`;
+        btn.disabled = false;
     }
 }

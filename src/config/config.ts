@@ -125,6 +125,8 @@ interface SBConfig {
     ignoreTranslatedTitles: boolean;
     hideDetailsWhileFetching: boolean;
     showOriginalAlongsideTitle: boolean; // oriz-fork
+    showOriginalTitle: boolean; // oriz-fork: render original title in a small grey line beneath the DeArrow title
+    showPreferenceBadge: boolean; // oriz-fork: render thumbs-up badges next to each title that vote on the DeArrow submission API
     firstThumbnailSubmitted: boolean;
     b: boolean;
     licenseKey: string | null;
@@ -236,6 +238,8 @@ const syncDefaults = {
     ignoreTranslatedTitles: false,
     hideDetailsWhileFetching: true,
     showOriginalAlongsideTitle: true, // oriz-fork: default ON
+    showOriginalTitle: true, // oriz-fork: default ON — dual-line display
+    showPreferenceBadge: true, // oriz-fork: default ON — clickable badge fires DeArrow vote
     firstThumbnailSubmitted: false,
     b: false,
     licenseKey: null,
